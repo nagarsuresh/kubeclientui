@@ -2,8 +2,14 @@ import { app, BrowserWindow, screen } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 
+import { KubeConfig, CoreV1Api } from '@kubernetes/client-node';
+
+
+console.log('Process argv ', process.argv);
+
 // Initialize remote module
 require('@electron/remote/main').initialize();
+
 
 let win: BrowserWindow = null;
 const args = process.argv.slice(1),
@@ -24,7 +30,7 @@ function createWindow(): BrowserWindow {
       nodeIntegration: true,
       allowRunningInsecureContent: (serve) ? true : false,
       contextIsolation: false,  // false if you want to run 2e2 test with Spectron
-      enableRemoteModule : true // true if you want to run 2e2 test  with Spectron or use remote module in renderer context (ie. Angular)
+      enableRemoteModule: true // true if you want to run 2e2 test  with Spectron or use remote module in renderer context (ie. Angular)
     },
   });
 
@@ -44,6 +50,19 @@ function createWindow(): BrowserWindow {
       slashes: true
     }));
   }
+
+
+  const kc = new KubeConfig();
+  kc.loadFromFile(`${__dirname}/server/data/gc.kubeconfig`);
+  const k8sApi = kc.makeApiClient(CoreV1Api);
+  setInterval(()=> {
+    k8sApi.listNamespace().then(res => {
+      console.log(JSON.stringify(res.body, null, 2));
+      win.webContents.send('namespaces', res.body);
+    });
+  }, 5000);
+
+
 
   // Emitted when the window is closed.
   win.on('closed', () => {
